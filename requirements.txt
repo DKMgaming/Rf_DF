@@ -6,3 +6,4 @@ scikit-learn
 joblib
 folium
 streamlit-folium
+openpyxl  # 👈 Thêm dòng này
