@@ -26,15 +26,12 @@ def simulate_signal_strength(dist_km, h, freq_mhz):
     return -30 - path_loss + 10 * np.log10(h + 1)
 
 def calculate_destination(lat1, lon1, azimuth_deg, distance_km):
-    R = 6371.0  # Bán kính Trái Đất (km)
+    R = 6371.0
     brng = radians(azimuth_deg)
     lat1 = radians(lat1)
     lon1 = radians(lon1)
-
     lat2 = np.arcsin(sin(lat1) * cos(distance_km / R) + cos(lat1) * sin(distance_km / R) * cos(brng))
-    lon2 = lon1 + atan2(sin(brng) * sin(distance_km / R) * cos(lat1),
-                        cos(distance_km / R) - sin(lat1) * sin(lat2))
-
+    lon2 = lon1 + atan2(sin(brng) * sin(distance_km / R) * cos(lat1), cos(distance_km / R) - sin(lat1) * sin(lat2))
     return degrees(lat2), degrees(lon2)
 
 # --- Giao diện ---
@@ -45,35 +42,49 @@ tab1, tab2 = st.tabs(["1. Huấn luyện mô hình", "2. Dự đoán tọa độ
 
 # --- Tab 1: Huấn luyện ---
 with tab1:
-    st.subheader("📡 Sinh dữ liệu mô phỏng và huấn luyện mô hình")
+    st.subheader("📡 Huấn luyện mô hình với dữ liệu mô phỏng hoặc thực tế")
 
-    if st.button("Huấn luyện mô hình từ dữ liệu mô phỏng"):
-        np.random.seed(42)
-        n_samples = 1000
-        data = []
-        for _ in range(n_samples):
-            lat_tx = np.random.uniform(10.0, 21.0)
-            lon_tx = np.random.uniform(105.0, 109.0)
-            lat_rx = lat_tx + np.random.uniform(-0.05, 0.05)
-            lon_rx = lon_tx + np.random.uniform(-0.05, 0.05)
-            h_rx = np.random.uniform(5, 50)
-            freq = np.random.uniform(400, 2600)
+    option = st.radio("Chọn nguồn dữ liệu huấn luyện:", ("Sinh dữ liệu mô phỏng", "Tải file Excel dữ liệu thực tế"))
 
-            azimuth = calculate_azimuth(lat_rx, lon_rx, lat_tx, lon_tx)
-            distance = sqrt((lat_tx - lat_rx)**2 + (lon_tx - lon_rx)**2) * 111
-            signal = simulate_signal_strength(distance, h_rx, freq)
+    if option == "Sinh dữ liệu mô phỏng":
+        if st.button("Huấn luyện mô hình từ dữ liệu mô phỏng"):
+            np.random.seed(42)
+            n_samples = 1000
+            data = []
+            for _ in range(n_samples):
+                lat_tx = np.random.uniform(10.0, 21.0)
+                lon_tx = np.random.uniform(105.0, 109.0)
+                lat_rx = lat_tx + np.random.uniform(-0.05, 0.05)
+                lon_rx = lon_tx + np.random.uniform(-0.05, 0.05)
+                h_rx = np.random.uniform(5, 50)
+                freq = np.random.uniform(400, 2600)
 
-            data.append({
-                "lat_receiver": lat_rx,
-                "lon_receiver": lon_rx,
-                "antenna_height": h_rx,
-                "azimuth": azimuth,
-                "frequency": freq,
-                "signal_strength": signal,
-                "distance_km": distance
-            })
+                azimuth = calculate_azimuth(lat_rx, lon_rx, lat_tx, lon_tx)
+                distance = sqrt((lat_tx - lat_rx)**2 + (lon_tx - lon_rx)**2) * 111
+                signal = simulate_signal_strength(distance, h_rx, freq)
 
-        df = pd.DataFrame(data)
+                data.append({
+                    "lat_receiver": lat_rx,
+                    "lon_receiver": lon_rx,
+                    "antenna_height": h_rx,
+                    "azimuth": azimuth,
+                    "frequency": freq,
+                    "signal_strength": signal,
+                    "distance_km": distance
+                })
+
+            df = pd.DataFrame(data)
+    else:
+        uploaded_data = st.file_uploader("📂 Tải file Excel dữ liệu thực tế", type=["xlsx"])
+        if uploaded_data:
+            df = pd.read_excel(uploaded_data)
+            st.success("Đã tải dữ liệu thực tế.")
+            st.dataframe(df.head())
+        else:
+            st.info("Vui lòng tải file dữ liệu để huấn luyện.")
+            df = None
+
+    if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
         df['azimuth_sin'] = np.sin(np.radians(df['azimuth']))
         df['azimuth_cos'] = np.cos(np.radians(df['azimuth']))
 
@@ -100,6 +111,21 @@ with tab1:
             mime="application/octet-stream"
         )
 
+    with st.expander("📄 Tải file Excel mẫu để huấn luyện"):
+        sample_data = pd.DataFrame({
+            "lat_receiver": [16.0],
+            "lon_receiver": [108.0],
+            "antenna_height": [30.0],
+            "azimuth": [45.0],
+            "frequency": [900.0],
+            "signal_strength": [-80.0],
+            "distance_km": [10.0]
+        })
+        towrite = BytesIO()
+        sample_data.to_excel(towrite, index=False, engine='openpyxl')
+        towrite.seek(0)
+        st.download_button("📥 Tải file Excel mẫu", data=towrite, file_name="mau_du_lieu_huan_luyen.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
 # --- Tab 2: Dự đoán ---
 with tab2:
     st.subheader("📍 Dự đoán tọa độ nguồn phát xạ")
@@ -120,15 +146,13 @@ with tab2:
                 az_cos = np.cos(np.radians(row['azimuth']))
                 X_input = np.array([[row['lat_receiver'], row['lon_receiver'], row['antenna_height'], row['signal_strength'], row['frequency'], az_sin, az_cos]])
                 predicted_distance = model.predict(X_input)[0]
-
-                # Đảm bảo mức tín hiệu càng thấp (càng âm nhiều) thì khoảng cách càng lớn
                 predicted_distance = max(predicted_distance, 0.1)
 
                 lat_pred, lon_pred = calculate_destination(row['lat_receiver'], row['lon_receiver'], row['azimuth'], predicted_distance)
 
                 folium.Marker([row['lat_receiver'], row['lon_receiver']], tooltip="Trạm thu", icon=folium.Icon(color='blue')).add_to(m)
                 folium.Marker([lat_pred, lon_pred], tooltip="Nguồn phát dự đoán", icon=folium.Icon(color='red')).add_to(m)
-                folium.PolyLine(locations=[[row['lat_receiver'], row['lon_receiver'],], [lat_pred, lon_pred]], color='green').add_to(m)
+                folium.PolyLine(locations=[[row['lat_receiver'], row['lon_receiver']], [lat_pred, lon_pred]], color='green').add_to(m)
 
                 results.append({
                     "lat_receiver": row['lat_receiver'],
@@ -156,8 +180,6 @@ with tab2:
                 az_cos = np.cos(np.radians(azimuth))
                 X_input = np.array([[lat_rx, lon_rx, h_rx, signal, freq, az_sin, az_cos]])
                 predicted_distance = model.predict(X_input)[0]
-
-                # Đảm bảo mức tín hiệu càng thấp (càng âm nhiều) thì khoảng cách càng lớn
                 predicted_distance = max(predicted_distance, 0.1)
 
                 lat_pred, lon_pred = calculate_destination(lat_rx, lon_rx, azimuth, predicted_distance)
