@@ -1,6 +1,8 @@
 streamlit
 numpy
 pandas
+xgboost
 scikit-learn
 joblib
-xgboost
+folium
+streamlit-folium
