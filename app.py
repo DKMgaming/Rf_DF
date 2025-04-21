@@ -2,7 +2,6 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from xgboost import XGBRegressor
-from sklearn.multioutput import MultiOutputRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
 import joblib
@@ -78,12 +77,12 @@ with tab1:
         df['azimuth_cos'] = np.cos(np.radians(df['azimuth']))
 
         X = df[['lat_receiver', 'lon_receiver', 'antenna_height', 'signal_strength', 'frequency', 'azimuth_sin', 'azimuth_cos']]
-        y = df[['distance_km']]
+        y = df['distance_km']
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
         model = XGBRegressor(n_estimators=300, max_depth=6, learning_rate=0.05)
-        model.fit(X_train, y_train.values.ravel())
+        model.fit(X_train, y_train)
 
         y_pred = model.predict(X_test)
         mae = mean_absolute_error(y_test, y_pred)
@@ -122,6 +121,8 @@ with tab2:
             az_cos = np.cos(np.radians(azimuth))
             X_input = np.array([[lat_rx, lon_rx, h_rx, signal, freq, az_sin, az_cos]])
             predicted_distance = model.predict(X_input)[0]
+
+            predicted_distance = max(predicted_distance, 0.1)
 
             lat_pred, lon_pred = calculate_destination(lat_rx, lon_rx, azimuth, predicted_distance)
 
