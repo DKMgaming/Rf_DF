@@ -46,6 +46,8 @@ with tab1:
 
     option = st.radio("Chọn nguồn dữ liệu huấn luyện:", ("Sinh dữ liệu mô phỏng", "Tải file Excel dữ liệu thực tế"))
 
+    df = None  # Đặt mặc định tránh lỗi NameError
+
     if option == "Sinh dữ liệu mô phỏng":
         if st.button("Huấn luyện mô hình từ dữ liệu mô phỏng"):
             np.random.seed(42)
@@ -82,7 +84,6 @@ with tab1:
             st.dataframe(df.head())
         else:
             st.info("Vui lòng tải file dữ liệu để huấn luyện.")
-            df = None
 
     if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
         df['azimuth_sin'] = np.sin(np.radians(df['azimuth']))
