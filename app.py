@@ -192,7 +192,9 @@ with tab2:
 
                 m = folium.Map(location=[lat_rx, lon_rx], zoom_start=10)
                 folium.Marker([lat_rx, lon_rx], tooltip="Trạm thu", icon=folium.Icon(color='blue')).add_to(m)
-                folium.Marker([lat_pred, lon_pred], tooltip="Nguồn phát dự đoán", icon=folium.Icon(color='red')).add_to(m)
+                folium.Marker([lat_pred, lon_pred], tooltip=f"Nguồn phát dự đoán\nTần số: {freq} MHz\nMức tín hiệu: {signal} dBm",
+                    icon=folium.Icon(color='red')
+                ).add_to(m)
                 folium.PolyLine(locations=[[lat_rx, lon_rx], [lat_pred, lon_pred]], color='green').add_to(m)
 
                 with st.container():
